@@ -1,0 +1,463 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Auditor de Suprimento de Fundos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: mesa de auditoria — coluna estreita de parâmetros à esquerda, parecer item a item à direita; empilha no celular */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --ink:#18241f; --muted:#5b6a63; --line:#d7dfdb;
+  --accent:#1d5c4d; --accent-soft:#e1eee9;
+  --ok:#1f7a4a; --ok-bg:#e3f3ea; --bad:#a6332b; --bad-bg:#f8e6e3; --warn:#8a5a00; --warn-bg:#f8efd9; --na:#5b6a63; --na-bg:#eceff0;
+  --f-display:"Literata",Georgia,"Times New Roman",serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111816; --surface:#18211e; --ink:#e3ebe7; --muted:#97a69f; --line:#2c3833;
+  --accent:#6cc0a7; --accent-soft:#1e3a32;
+  --ok:#6fd19b; --ok-bg:#16302a; --bad:#f0928a; --bad-bg:#3a1f1c; --warn:#e8bf62; --warn-bg:#36291166; --na:#a3b0aa; --na-bg:#232d29;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111816; --surface:#18211e; --ink:#e3ebe7; --muted:#97a69f; --line:#2c3833;
+  --accent:#6cc0a7; --accent-soft:#1e3a32;
+  --ok:#6fd19b; --ok-bg:#16302a; --bad:#f0928a; --bad-bg:#3a1f1c; --warn:#e8bf62; --warn-bg:#36291166; --na:#a3b0aa; --na-bg:#232d29;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+header{display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--line);padding-bottom:18px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--f-display);font-weight:650;font-size:clamp(26px,4vw,36px);line-height:1.15;margin:0;text-wrap:balance}
+header p{margin:0;color:var(--muted);max-width:70ch}
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+h2{font-family:var(--f-display);font-weight:500;font-size:20px;margin:0}
+h3{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>label{flex:1 1 130px}
+input[type=date],input[type=text],textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;width:100%}
+input:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible,.drop:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.money{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+textarea{font-family:var(--f-mono);font-size:12.5px;line-height:1.55;min-height:260px;resize:vertical}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:18px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{font-weight:600}.drop small{color:var(--muted)}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.file{font-family:var(--f-mono);font-size:12.5px;color:var(--accent);word-break:break-all}
+button{font:inherit;font-weight:600;font-size:14px;border-radius:6px;padding:10px 16px;cursor:pointer;border:1px solid var(--accent)}
+.primary{background:var(--accent);color:var(--surface)}
+.primary:disabled{opacity:.45;cursor:not-allowed}
+.ghost{background:transparent;color:var(--accent)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+details{border-top:1px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font-weight:600;font-size:14px}
+details[open] summary{margin-bottom:10px}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.notice{border-radius:8px;padding:12px 14px;font-size:13.5px;background:var(--warn-bg);color:var(--warn)}
+.progress{display:flex;flex-direction:column;gap:8px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.steps{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.steps li.now{color:var(--ink)}
+.summary{display:flex;gap:10px;flex-wrap:wrap}
+.count{flex:1 1 120px;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.count b{font-family:var(--f-mono);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.count span{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.c-ok{background:var(--ok-bg);color:var(--ok)}.c-bad{background:var(--bad-bg);color:var(--bad)}.c-warn{background:var(--warn-bg);color:var(--warn)}.c-na{background:var(--na-bg);color:var(--na)}
+.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.item{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:4px 14px;padding:14px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.num{font-family:var(--f-mono);font-size:13px;color:var(--muted);padding-top:2px}
+.it-title{font-weight:600;font-size:14.5px}
+.it-body{grid-column:2/4;font-size:14px;white-space:pre-wrap;min-width:0}
+.pages{grid-column:2/4;font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+.chip{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:3px 10px;white-space:nowrap;align-self:start}
+.s-validado{background:var(--ok-bg);color:var(--ok)}.s-nao_conforme{background:var(--bad-bg);color:var(--bad)}.s-nao_validado{background:var(--warn-bg);color:var(--warn)}.s-nao_aplicavel{background:var(--na-bg);color:var(--na)}
+@media (max-width:520px){.item{grid-template-columns:40px minmax(0,1fr)}.chip{grid-column:2;justify-self:start}.it-body,.pages{grid-column:2}}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.checks li{display:flex;gap:8px;align-items:baseline}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;transform:translateY(-1px)}
+.d-ok{background:var(--ok)}.d-bad{background:var(--bad)}.d-warn{background:var(--warn)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--bg)}
+td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.example{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:2px 8px;align-self:flex-start}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">TRT9 · Suprimento de Fundos · CTA-SF</span>
+    <h1>Auditor de Suprimento de Fundos</h1>
+    <p>Envie o PDF da prestação de contas. O Claude lê cada página física, mapeia os documentos e responde os itens 1.1 a 1.19 seguindo as premissas de comportamento.</p>
+  </header>
+
+  <div class="grid">
+    <form class="panel" id="form" novalidate>
+      <h2>Parâmetros da análise</h2>
+
+      <label class="drop" id="drop" for="pdf">
+        <strong>Selecionar o PDF da prestação de contas</strong>
+        <small>ou arraste o arquivo para cá</small>
+        <span class="file" id="fileName"></span>
+        <input type="file" id="pdf" accept="application/pdf">
+      </label>
+
+      <div class="row">
+        <label>Início da concessão<input type="date" id="ini" required></label>
+        <label>Fim da concessão<input type="date" id="fim" required></label>
+      </div>
+      <label>Valor concedido (R$)<input type="text" id="limite" class="money" inputmode="decimal" placeholder="ex.: 8.000,00"></label>
+      <div class="row">
+        <label>Limite por NF (R$)<input type="text" id="limNF" class="money" value="3.274,60" inputmode="decimal"></label>
+        <label>Limite por pedido (R$)<input type="text" id="limPed" class="money" value="32.746,05" inputmode="decimal"></label>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="primary" id="go">Auditar prestação de contas</button>
+        <button type="button" class="ghost" id="stop" hidden>Parar</button>
+      </div>
+      <p class="hint" id="formMsg"></p>
+      <div class="notice" id="unavail" hidden>A análise pelo Claude não está disponível nesta visualização. Abra a página no claude.ai, com a sua conta, e permita o uso do Claude quando ela pedir.</div>
+
+      <details id="premDetails">
+        <summary>Premissas de comportamento (treino)</summary>
+        <p class="hint">Este texto vem do documento PREMISSAS DE COMPORTAMENTO e é enviado ao Claude em toda análise. Ajuste aqui para refinar as respostas; a alteração fica salva só neste navegador.</p>
+        <textarea id="prem" spellcheck="false"></textarea>
+        <div class="actions"><button type="button" class="ghost" id="resetPrem">Restaurar texto original</button></div>
+      </details>
+    </form>
+
+    <section class="panel" id="out" aria-live="polite">
+      <div id="idle">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <span class="example">Exemplo de parecer</span>
+          <h2>Como o resultado aparece</h2>
+          <p class="hint">Depois da análise, cada item recebe um status, o parecer técnico e as páginas físicas do PDF que sustentam a conclusão.</p>
+          <ul class="items" id="exampleItems"></ul>
+        </div>
+      </div>
+
+      <div id="running" hidden>
+        <div class="progress">
+          <h2 id="runTitle">Analisando</h2>
+          <div class="bar"><span id="barFill"></span></div>
+          <ul class="steps" id="steps"></ul>
+        </div>
+      </div>
+
+      <div id="result" hidden style="display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">
+          <h2>Parecer de auditoria</h2>
+          <div class="actions">
+            <button type="button" class="ghost" id="copy">Copiar parecer</button>
+            <button type="button" class="ghost" id="dl" hidden>Baixar .md</button>
+          </div>
+        </div>
+        <p class="hint" id="resMeta"></p>
+        <div class="summary" id="counts"></div>
+        <div>
+          <h3 style="margin-bottom:8px">Checagens automáticas (cálculo pelo site)</h3>
+          <ul class="checks" id="checks"></ul>
+        </div>
+        <ul class="items" id="items"></ul>
+        <details>
+          <summary>Mapeamento das páginas</summary>
+          <div class="tablewrap"><table><thead><tr><th>Pág.</th><th>Tipo</th><th>Conteúdo identificado</th><th>Leitura</th></tr></thead><tbody id="map"></tbody></table></div>
+        </details>
+        <pre id="copySrc" hidden></pre>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const TRT_CNPJ="03141166000116";
+
+const PREMISSAS_ORIGINAIS=`PREMISSAS DE COMPORTAMENTO (OBRIGATÓRIAS):
+1. Você NUNCA exibirá códigos, logs, comandos ou etapas internas.
+2. Sempre que houver cálculo financeiro, apresente apenas o resultado final, sem fórmulas, sem memória de cálculo e sem valores intermediários.
+3. É expressamente proibido inferir, estimar ou deduzir qualquer informação que não esteja explicitamente confirmada no arquivo analisado.
+4. Na dúvida entre afirmar algo ou declarar incerteza, declare incerteza.
+5. É preferível responder "não foi possível validar com segurança" do que apresentar informação incorreta.
+
+FUNÇÃO:
+Você é um AUDITOR ESPECIALIZADO EM ANÁLISE DE PRESTAÇÃO DE CONTAS PÚBLICAS, com foco em verificação documental, checagem de conformidade normativa, validação cruzada de informações e identificação de inconsistências formais, materiais e legais. Seu papel é auditar com rigor técnico, não presumir.
+
+DEFINIÇÃO CRÍTICA DE PÁGINA:
+"Página X" significa EXCLUSIVAMENTE a posição física da página no arquivo PDF. Ignore numeração impressa, capas, índices, numeração reiniciada e páginas escaneadas sem número. Se não for possível determinar a página física com segurança, declare: "Não foi possível determinar com segurança a página exata."
+
+TRATAMENTO DE PDF HETEROGÊNEO:
+O arquivo pode conter páginas nativas e escaneadas. Texto obtido via OCR é evidência auxiliar, nunca conclusiva. Confirme pela estrutura visual típica do documento (NF, recibo, relatório). Se a leitura estiver incompleta ou ambígua, não invente dados e declare a limitação.
+
+REGRA DE EVIDÊNCIA:
+Toda irregularidade deve conter a página física exata (Pag. X) e o elemento concreto identificado naquela página. É proibido deduzir página por ordem lógica, posição típica ou proximidade semântica. Sempre que possível, valide a localização por pelo menos dois elementos distintos.
+
+QUESTÕES:
+1.1 - Há Relatório de prestação de contas assinado pelo suprido? O relatório é um documento do sistema com, no topo da primeira página, os textos ADMINISTRATIVO e "Programa de Trabalho: Apreciação de Causas na Justiça do Trabalho". Verificar se ao final há a assinatura do responsável. Se não encontrado ou não assinado: "Relatório de Prestação de Contas não Encontrado" ou "Relatório de Prestação de Contas Não assinado. Pag. X".
+1.2 - Todas as notas fiscais informadas no relatório foram apresentadas? Colunas do relatório: Data, Documento, Descrição Fornecedor, Justificativa, Valor Documento, Valor Comprovante, Local. Um mesmo documento pode aparecer em várias linhas; some os valores para comparar. 1.2.1 Todas as NF do campo Documento estão no arquivo? 1.2.2 O valor total da NF (valor efetivamente cobrado; compare com o comprovante de pagamento se necessário) é igual ao do relatório?
+1.3 - Houve retenção tributária (pagamento pelo bruto)? Avaliar em cada NF se o valor pago já contempla impostos/tributos. Recibo no lugar de NF, ou nota não verificável: "Retenção Tributária Não Validada: Pag. X".
+1.4 - Todas as notas apresentadas constam corretamente no relatório? 1.4.1 datas; 1.4.2 número do documento; 1.4.3 valor pago. Apontar NF ou recibo do arquivo que não esteja no relatório.
+1.5 - A data de cada NF ou recibo está dentro do período de concessão?
+1.6 - Os valores estão de acordo com os limites legais e do Termo de Concessão? O total do relatório (acima da assinatura) deve ser validado pela soma de notas, recibos e comprovantes de saque e não pode superar o valor concedido. Limite por pedido de suprimento: 32.746,05. Limite de despesa por nota fiscal: 3.274,60.
+1.7 - Alguma NF ou recibo foi emitida em nome de terceiros? O destinatário/tomador deve ser sempre o Tribunal Regional do Trabalho da 9ª Região (aceite variações sem acento ou siglas), CNPJ 03.141.166/0001-16. Caso contrário: "NF em nome de Terceiros. Pag. X".
+1.8 - Alguma NF ou recibo deixa de apresentar ateste de recebimento do serviço/material por outro servidor (não o que assina o relatório), com data igual ou posterior à NF? O ateste vem como carimbo e assinatura ou e-mail, e normalmente fica na mesma página ou nas seguintes. Cada nota deve ter um ateste. Caso falte: "Ateste de Recebimento não encontrado para a NF/Recibo na Pag. X".
+1.9 - Há recibo de recebimento do pagamento pelo fornecedor para cada pagamento? Comprovante de pagamento sozinho não basta; deve haver carimbo e assinatura ou e-mail do fornecedor confirmando o recebimento. Caso falte: "Ateste de pagamento não encontrado para a NF/Recibo na Pag. X".
+1.10 - Dados do comprovante de pagamento com cartão coincidem com os da nota fiscal (CNPJ do favorecido, valor)?
+1.11 - Data de pagamento não é anterior à data da nota fiscal.
+1.12 - Apresenta consulta ao almoxarifado referente à aquisição de materiais (o chamado deve ter resposta do almoxarifado informando não dispor do material).
+1.13 - Apresenta consulta ao sistema de contratos referente aos serviços pagos (deve demonstrar que não há contrato vigente para o serviço).
+1.14 - Apresenta as tarefas ou chamados técnicos atendidos (chamado com solicitação do serviço por servidor que não seja o suprido).
+1.15 - Há justificativa para pagamentos via saque e autorização da ODESP caso ultrapasse o valor concedido (autorização expressa, normalmente por e-mail, para saques acima do limite legal de até 50% do valor gasto).
+1.16 - Percentual de pagamentos com saque está de acordo com os limites da concessão.
+1.17 - O suprido indicou corretamente no sistema os pagamentos por saque (comprovantes de saque e depósito; indicação das despesas por saque no formulário do CTA).
+1.18 - Foi conferida a autenticidade das notas fiscais eletrônicas (conferência via chave de acesso no portal da NF-e).
+1.19 - Alguma NF é de MEI e deve ser recolhido INSS? (identificar MEI e aplicar regras de recolhimento)
+
+REGRA FINAL DE SEGURANÇA:
+Antes da resposta final, revalide todas as páginas citadas e confirme que o conteúdo descrito existe exatamente naquela página. Havendo dúvida, substitua a afirmação por "Não foi possível validar com segurança."`;
+
+const TITULOS={"1.1":"Relatório de prestação de contas assinado pelo suprido","1.2":"Notas do relatório apresentadas e com valor igual","1.3":"Retenção tributária (pagamento pelo bruto)","1.4":"Notas apresentadas constam corretamente no relatório","1.5":"Datas dentro do período de concessão","1.6":"Limites legais e do Termo de Concessão","1.7":"NF em nome de terceiros","1.8":"Ateste de recebimento por outro servidor","1.9":"Recibo de pagamento pelo fornecedor","1.10":"Comprovante de cartão coincide com a NF","1.11":"Pagamento não anterior à NF","1.12":"Consulta ao almoxarifado (materiais)","1.13":"Consulta ao sistema de contratos (serviços)","1.14":"Chamados técnicos atendidos","1.15":"Justificativa de saque e autorização ODESP","1.16":"Percentual de saque dentro do limite","1.17":"Indicação correta dos saques no sistema","1.18":"Autenticidade das NF-e","1.19":"NF de MEI e recolhimento de INSS"};
+const ITENS=Object.keys(TITULOS);
+const STATUS={validado:"Validado",nao_conforme:"Não conforme",nao_validado:"Não validado",nao_aplicavel:"Não se aplica"};
+
+/* ---------- premissas (treino) ---------- */
+const PKEY="auditor-sf-premissas";
+function loadPrem(){try{return localStorage.getItem(PKEY)||PREMISSAS_ORIGINAIS}catch(e){return PREMISSAS_ORIGINAIS}}
+$("prem").value=loadPrem();
+$("prem").addEventListener("input",()=>{try{localStorage.setItem(PKEY,$("prem").value)}catch(e){}});
+$("resetPrem").onclick=()=>{$("prem").value=PREMISSAS_ORIGINAIS;try{localStorage.removeItem(PKEY)}catch(e){}};
+
+/* ---------- exemplo inicial ---------- */
+renderItems($("exampleItems"),[
+  {item:"1.1",status:"validado",parecer:"Relatório localizado, com ADMINISTRATIVO e o Programa de Trabalho no topo. Assinatura do suprido presente ao final.",paginas:[2,3]},
+  {item:"1.5",status:"nao_conforme",parecer:"NF 4.512 emitida antes do início do período de concessão.",paginas:[9]},
+  {item:"1.9",status:"nao_validado",parecer:"Não foi possível validar com segurança: carimbo do fornecedor ilegível.",paginas:[14]}
+]);
+
+/* ---------- arquivo ---------- */
+let file=null;
+const drop=$("drop");
+$("pdf").addEventListener("change",e=>setFile(e.target.files[0]));
+["dragover","dragenter"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)setFile(f)});
+function setFile(f){
+  if(!f)return;
+  if(f.type!=="application/pdf"&&!/\.pdf$/i.test(f.name)){$("formMsg").textContent="O arquivo precisa ser um PDF.";return}
+  file=f;$("fileName").textContent=f.name+" · "+(f.size/1048576).toFixed(1)+" MB";$("formMsg").textContent="";
+}
+
+/* ---------- utilitários ---------- */
+function parseBR(s){if(s==null)return NaN;if(typeof s==="number")return s;s=String(s).replace(/[R$\s]/g,"");if(!s)return NaN;
+  if(s.includes(","))s=s.replace(/\./g,"").replace(",",".");return Number(s)}
+const brl=n=>isFinite(n)?n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}):"—";
+function parseDate(s){if(!s)return null;let m=String(s).match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if(m){let y=+m[3];if(y<100)y+=2000;return new Date(y,+m[2]-1,+m[1])}
+  m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);return null}
+const fmtD=d=>d?d.toLocaleDateString("pt-BR"):"—";
+const digits=s=>String(s||"").replace(/\D/g,"");
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+
+/* ---------- progresso ---------- */
+let stepsEl=$("steps");
+function step(t){stepsEl.querySelectorAll("li").forEach(l=>l.classList.remove("now"));const li=el("li","now",t);stepsEl.append(li)}
+function progress(p){$("barFill").style.width=Math.round(p*100)+"%"}
+function show(which){["idle","running","result"].forEach(id=>$(id).hidden=id!==which);if(which==="result")$("result").style.display="flex"}
+
+/* ---------- capacidades ---------- */
+let sample=null,caps=null,downloads=null;
+claude.use("sample").then(async s=>{sample=s;if(!s){$("unavail").hidden=false;return}
+  caps=await s.limits().catch(()=>null);
+  if(!caps||!caps.images){$("unavail").hidden=false;$("unavail").textContent="Esta visualização não consegue enviar as páginas do PDF como imagem ao Claude. Abra a página no claude.ai para auditar."}
+});
+claude.use("downloads").then(d=>{downloads=d;$("dl").hidden=!d});
+
+/* ---------- PDF ---------- */
+function pdfjs(){const lib=window.pdfjsLib;if(!lib)throw new Error("Não foi possível carregar o leitor de PDF. Recarregue a página.");
+  lib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";return lib}
+async function renderPage(pdf,n,maxBytes){
+  const page=await pdf.getPage(n);const base=page.getViewport({scale:1});
+  const scale=Math.min(2.2,1500/Math.max(base.width,base.height));
+  const vp=page.getViewport({scale});const c=document.createElement("canvas");c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
+  const ctx=c.getContext("2d");ctx.fillStyle="#ffffff";ctx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+  let q=.85,blob=await new Promise(r=>c.toBlob(r,"image/jpeg",q));
+  while(maxBytes&&blob.size>maxBytes&&q>.4){q-=.15;blob=await new Promise(r=>c.toBlob(r,"image/jpeg",q))}
+  let text="";try{const tc=await page.getTextContent();text=tc.items.map(i=>i.str).join(" ").replace(/\s+/g," ").trim()}catch(e){}
+  return {blob,text:text.slice(0,3500)};
+}
+
+/* ---------- prompts ---------- */
+function extractPrompt(batch){
+  const labels=batch.map((p,i)=>`Imagem ${i+1} = PÁGINA FÍSICA ${p.n}`).join("\n");
+  const texts=batch.map(p=>`--- PÁGINA FÍSICA ${p.n} (texto embutido no PDF; vazio = página escaneada) ---\n${p.text||"(sem texto embutido)"}`).join("\n\n");
+  return `Você é um auditor de prestação de contas públicas do TRT9 (suprimento de fundos). Nesta etapa você NÃO julga nada: apenas extrai, com fidelidade, o que está visível em cada página. Nunca invente nem estime dados; quando algo não estiver legível ou presente, use null.
+
+As imagens anexadas estão nesta ordem:
+${labels}
+
+Texto auxiliar extraído do PDF (evidência auxiliar; a imagem prevalece):
+${texts}
+
+Responda SOMENTE com um array JSON, um objeto por página, neste formato:
+[{"pagina":3,"tipo":"relatorio|nota_fiscal|recibo|cupom_fiscal|comprovante_cartao|comprovante_saque|comprovante_deposito|ateste_recebimento|ateste_pagamento|email|chamado|consulta_almoxarifado|consulta_contratos|formulario_cta|outro",
+"resumo":"o que a página contém, em uma frase",
+"relatorio":null ou {"primeira_pagina_relatorio":bool,"tem_cabecalho_administrativo_programa_trabalho":bool,"linhas":[{"data":"dd/mm/aaaa","documento":"","fornecedor":"","valor_documento":0,"valor_comprovante":0}],"total_informado":null,"assinatura_presente":bool|null,"assinante":null},
+"documentos_fiscais":[{"tipo":"nf|nfse|nfce|recibo|cupom","numero":"","data_emissao":"dd/mm/aaaa","valor_total":0,"emitente":"","cnpj_emitente":"","emitente_mei":true|false|null,"destinatario":"","cnpj_destinatario":"","chave_acesso":null,"tributos":"o que a nota informa sobre impostos/retenções, ou null","descricao":"material ou serviço"}],
+"comprovantes":[{"tipo":"cartao|saque|deposito|pix|outro","data":"dd/mm/aaaa","valor":0,"favorecido":"","cnpj_favorecido":"","assinado_pelo_suprido":bool|null}],
+"atestes":[{"tipo":"recebimento_material_servico|recebimento_pagamento_fornecedor","forma":"carimbo|email|declaracao","data":"dd/mm/aaaa","quem":"nome/cargo","referencia":"NF a que se refere, se indicada"}],
+"outros":"chamados, consultas ao almoxarifado ou contratos, autorizações da ODESP, justificativas de saque, com quem solicitou/respondeu e a conclusão, ou null",
+"legibilidade":"boa|parcial|ruim"}]
+
+Valores em número (ponto decimal). Inclua todas as ${batch.length} páginas, na ordem.`;
+}
+function auditPrompt(mapa,params,auto){
+  return `${$("prem").value}
+
+=== DADOS DESTA ANÁLISE ===
+Período de concessão: ${params.ini} a ${params.fim}
+Valor concedido: ${params.limite?brl(params.limite):"não informado"}
+Limite por nota fiscal: ${brl(params.limNF)}
+Limite por pedido de suprimento: ${brl(params.limPed)}
+Total de páginas físicas do PDF: ${params.total}
+
+=== MAPEAMENTO INTEGRAL DO ARQUIVO (Página física → conteúdo extraído das imagens) ===
+${JSON.stringify(mapa)}
+
+=== CHECAGENS AUTOMÁTICAS FEITAS PELO SISTEMA (use como apoio; confira contra o mapeamento) ===
+${auto.map(a=>"- "+a.txt).join("\n")}
+
+=== INSTRUÇÃO DE SAÍDA ===
+Com base EXCLUSIVAMENTE no mapeamento acima, responda os itens 1.1 a 1.19. Use "nao_validado" sempre que a informação não estiver confirmada no mapeamento. Toda não conformidade deve citar a página física e o elemento concreto. Não mostre fórmulas nem cálculos intermediários.
+Responda SOMENTE com um array JSON de 19 objetos:
+[{"item":"1.1","status":"validado|nao_conforme|nao_validado|nao_aplicavel","parecer":"texto técnico curto, com as mensagens padronizadas das premissas quando houver não conformidade","paginas":[2,3]}]`;
+}
+
+/* ---------- checagens determinísticas ---------- */
+function autoChecks(mapa,params){
+  const out=[];const docs=[];const rel=[];let totalRel=null;
+  mapa.forEach(p=>{(p.documentos_fiscais||[]).forEach(d=>docs.push({...d,pagina:p.pagina}));
+    if(p.relatorio){(p.relatorio.linhas||[]).forEach(l=>rel.push({...l,pagina:p.pagina}));if(p.relatorio.total_informado!=null)totalRel={v:parseBR(p.relatorio.total_informado),pagina:p.pagina}}});
+  const ini=parseDate(params.ini),fim=parseDate(params.fim);
+  docs.forEach(d=>{
+    const v=parseBR(d.valor_total),dt=parseDate(d.data_emissao),id=`${(d.tipo||"doc").toUpperCase()} ${d.numero||"s/nº"}`;
+    if(isFinite(v)&&v>params.limNF+0.004)out.push({k:"bad",txt:`${id} (Pag. ${d.pagina}) tem valor ${brl(v)}, acima do limite por nota de ${brl(params.limNF)}.`});
+    if(dt&&ini&&fim&&(dt<ini||dt>fim))out.push({k:"bad",txt:`${id} (Pag. ${d.pagina}) emitida em ${fmtD(dt)}, fora do período de concessão.`});
+    if(!dt)out.push({k:"warn",txt:`${id} (Pag. ${d.pagina}): data de emissão não lida; período não pôde ser conferido.`});
+    const c=digits(d.cnpj_destinatario);
+    if(c&&c!==TRT_CNPJ)out.push({k:"bad",txt:`${id} (Pag. ${d.pagina}) tem destinatário com CNPJ ${d.cnpj_destinatario}, diferente do TRT9.`});
+    if(d.emitente_mei===true)out.push({k:"warn",txt:`${id} (Pag. ${d.pagina}) foi emitida por MEI; verificar recolhimento de INSS.`});
+  });
+  const somaDocs=docs.reduce((s,d)=>s+(isFinite(parseBR(d.valor_total))?parseBR(d.valor_total):0),0);
+  const somaRel=rel.reduce((s,l)=>s+(isFinite(parseBR(l.valor_comprovante))?parseBR(l.valor_comprovante):(isFinite(parseBR(l.valor_documento))?parseBR(l.valor_documento):0)),0);
+  const total=totalRel&&isFinite(totalRel.v)?totalRel.v:somaRel;
+  if(!rel.length)out.push({k:"warn",txt:"Nenhuma linha de relatório foi lida; as comparações com o relatório não puderam ser feitas."});
+  else{
+    out.push({k:"ok",txt:`Total do relatório: ${brl(total)}${totalRel?` (Pag. ${totalRel.pagina})`:""}. Soma dos documentos fiscais lidos: ${brl(somaDocs)}.`});
+    if(Math.abs(total-somaDocs)>0.01)out.push({k:"warn",txt:"O total do relatório difere da soma dos documentos fiscais lidos; conferir notas ausentes, saques ou leitura parcial."});
+    if(params.limite&&total>params.limite+0.004)out.push({k:"bad",txt:`O total do relatório supera o valor concedido de ${brl(params.limite)}.`});
+    if(total>params.limPed+0.004)out.push({k:"bad",txt:`O total do relatório supera o limite por pedido de ${brl(params.limPed)}.`});
+    const numsDocs=new Set(docs.map(d=>digits(d.numero)).filter(Boolean));
+    const faltando=[...new Set(rel.map(l=>digits(l.documento)).filter(n=>n&&!numsDocs.has(n)))];
+    if(faltando.length)out.push({k:"bad",txt:`Documento(s) do relatório sem nota correspondente lida no arquivo: ${faltando.join(", ")} (relatório na Pag. ${rel[0].pagina}).`});
+    const numsRel=new Set(rel.map(l=>digits(l.documento)).filter(Boolean));
+    docs.filter(d=>digits(d.numero)&&!numsRel.has(digits(d.numero))).forEach(d=>out.push({k:"bad",txt:`${(d.tipo||"doc").toUpperCase()} ${d.numero} (Pag. ${d.pagina}) está no arquivo mas não aparece no relatório.`}));
+  }
+  if(!params.limite)out.push({k:"warn",txt:"Valor concedido não informado; o limite da concessão não foi conferido."});
+  if(!out.some(o=>o.k!=="ok"))out.push({k:"ok",txt:"Sem divergências nas checagens automáticas."});
+  return out;
+}
+
+/* ---------- render ---------- */
+function renderItems(ul,items){
+  ul.replaceChildren();
+  items.forEach(it=>{
+    const li=el("li","item");
+    li.append(el("span","num",it.item),el("span","it-title",TITULOS[it.item]||"Item "+it.item));
+    const st=STATUS[it.status]?it.status:"nao_validado";li.append(el("span","chip s-"+st,STATUS[st]));
+    li.append(el("div","it-body",it.parecer||"Não foi possível validar com segurança."));
+    const pg=(it.paginas||[]).filter(n=>Number.isFinite(+n));
+    if(pg.length)li.append(el("div","pages","Páginas: "+pg.map(n=>"Pag. "+n).join(", ")));
+    ul.append(li);
+  });
+}
+let lastMd="";
+function renderResult(items,auto,mapa,params){
+  const byItem={};items.forEach(i=>{if(i&&i.item)byItem[String(i.item).trim()]=i});
+  const full=ITENS.map(k=>byItem[k]||{item:k,status:"nao_validado",parecer:"Não foi possível validar com segurança.",paginas:[]});
+  const n=s=>full.filter(i=>(STATUS[i.status]?i.status:"nao_validado")===s).length;
+  const counts=$("counts");counts.replaceChildren();
+  [["validado","c-ok"],["nao_conforme","c-bad"],["nao_validado","c-warn"],["nao_aplicavel","c-na"]].forEach(([s,c])=>{const d=el("div","count "+c);d.append(el("b",null,String(n(s))),el("span",null,STATUS[s]));counts.append(d)});
+  const ch=$("checks");ch.replaceChildren();
+  auto.forEach(a=>{const li=el("li");li.append(el("span","dot d-"+a.k),el("span",null,a.txt));ch.append(li)});
+  renderItems($("items"),full);
+  const tb=$("map");tb.replaceChildren();
+  mapa.forEach(p=>{const tr=el("tr");tr.append(el("td","n",String(p.pagina)),el("td",null,(p.tipo||"—").replace(/_/g," ")),el("td",null,p.resumo||""),el("td",null,p.legibilidade||"—"));tb.append(tr)});
+  $("resMeta").textContent=`${params.nome} · ${params.total} páginas · período ${params.ini} a ${params.fim}${params.limite?" · concedido "+brl(params.limite):""}`;
+  lastMd=`# Parecer de auditoria — ${params.nome}\n\n${$("resMeta").textContent}\n\n## Checagens automáticas\n${auto.map(a=>"- "+a.txt).join("\n")}\n\n## Itens\n`+
+    full.map(i=>`### ${i.item} – ${TITULOS[i.item]}\n**${STATUS[i.status]||"Não validado"}**\n\n${i.parecer||""}${(i.paginas||[]).length?"\n\nPáginas: "+i.paginas.map(x=>"Pag. "+x).join(", "):""}`).join("\n\n");
+  show("result");
+}
+$("copy").onclick=async()=>{try{await navigator.clipboard.writeText(lastMd);$("copy").textContent="Copiado"}catch(e){const p=$("copySrc");p.hidden=false;p.textContent=lastMd;const r=document.createRange();r.selectNodeContents(p);const s=getSelection();s.removeAllRanges();s.addRange(r);$("copy").textContent="Texto selecionado"}
+  setTimeout(()=>$("copy").textContent="Copiar parecer",2000)};
+$("dl").onclick=async()=>{if(!downloads)return;try{await downloads.save({filename:"parecer-auditoria.md",data:lastMd})}catch(e){if(e&&e.code==="unavailable")$("dl").hidden=true}};
+
+/* ---------- execução ---------- */
+let ctl=null;
+$("stop").onclick=()=>ctl&&ctl.abort();
+const ERR={not_granted:"O uso do Claude não foi permitido para esta página.",sampling_disabled:"O Claude não está disponível para esta conta.",rate_limited:"Limite de uso atingido. Tente novamente em alguns minutos.",session_expired:"Sua sessão expirou. Entre novamente no claude.ai.",image_rejected:"Uma das páginas não pôde ser enviada como imagem.",refused:"O Claude recusou o conteúdo enviado.",invalid_json:"A resposta veio em formato inesperado. Tente novamente.",prompt_too_large:"O PDF tem conteúdo demais para uma análise. Divida o arquivo.",upstream_error:"Falha temporária de conexão. Tente novamente."};
+
+$("form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const msg=$("formMsg");
+  if(!file){msg.textContent="Selecione o PDF da prestação de contas.";return}
+  if(!$("ini").value||!$("fim").value){msg.textContent="Informe o período de concessão. Sem ele o item 1.5 não pode ser auditado.";return}
+  if(!sample||!caps||!caps.images){$("unavail").hidden=false;return}
+  const toBR=v=>v.split("-").reverse().join("/");
+  const params={nome:file.name,ini:toBR($("ini").value),fim:toBR($("fim").value),limite:parseBR($("limite").value)||0,limNF:parseBR($("limNF").value)||3274.60,limPed:parseBR($("limPed").value)||32746.05};
+  if(!params.limite)msg.textContent="Valor concedido não informado: o limite da concessão ficará sem conferência.";else msg.textContent="";
+  ctl=new AbortController();const signal=ctl.signal;
+  $("go").disabled=true;$("stop").hidden=false;stepsEl.replaceChildren();progress(0);show("running");$("runTitle").textContent="Analisando "+file.name;
+  try{
+    const lib=pdfjs();step("Abrindo o PDF");
+    const pdf=await lib.getDocument({data:await file.arrayBuffer()}).promise;
+    const total=pdf.numPages;params.total=total;
+    if(total>120)throw {code:"local",message:"O PDF tem "+total+" páginas. Divida em arquivos de até 120 páginas."};
+    const per=Math.max(1,Math.min(caps.images.maxCount||5,6));
+    const pages=[];
+    for(let n=1;n<=total;n++){if(signal.aborted)throw {code:"cancelled"};step(`Lendo página física ${n} de ${total}`);pages.push({n,...await renderPage(pdf,n,caps.images.maxInputBytes)});progress(.25*n/total)}
+    const mapa=[];const batches=Math.ceil(total/per);
+    for(let b=0;b<batches;b++){
+      const batch=pages.slice(b*per,(b+1)*per);
+      step(`Mapeando páginas ${batch[0].n}–${batch[batch.length-1].n} com o Claude`);
+      const res=await sample.json(extractPrompt(batch),{images:batch.map(p=>p.blob),signal,modelTier:"default"});
+      const arr=Array.isArray(res)?res:[];
+      batch.forEach((p,i)=>{const found=arr.find(x=>+x.pagina===p.n)||arr[i]||{};found.pagina=p.n;mapa.push(found)});
+      progress(.25+.55*(b+1)/batches);
+    }
+    step("Executando checagens automáticas de valores, datas e CNPJ");
+    const auto=autoChecks(mapa,params);
+    step("Emitindo parecer dos itens 1.1 a 1.19");$("runTitle").textContent="Redigindo o parecer";
+    const items=await sample.json(auditPrompt(mapa,params,auto),{signal,modelTier:"complex"});
+    progress(1);
+    renderResult(Array.isArray(items)?items:[],auto,mapa,params);
+  }catch(err){
+    const code=err&&err.code;
+    show("idle");
+    msg.textContent=code==="cancelled"?"Análise interrompida.":code==="local"?err.message:(ERR[code]||(err&&err.message)||"Não foi possível concluir a análise.");
+    if(code==="not_granted"||code==="sampling_disabled"){$("unavail").hidden=false}
+  }finally{$("go").disabled=false;$("stop").hidden=true;ctl=null}
+});
+})();
+</script>
+
+</body></html>
